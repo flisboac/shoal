@@ -1,0 +1,132 @@
+#!/bin/bash
+
+
+
+readonly SHELL_HAS_TYPE_T="$(type -t 'if' 2>/dev/null >/dev/null; echo "$?")"
+readonly SHELL_HAS_READ_S="$(echo "\n" | read -s 'if' 2>/dev/null >/dev/null; echo "$?")"
+
+typeof() {
+	local elem; elem="$1"; shift
+	local typeinfo
+	local typeid
+	local exitcode
+
+	if [ "$SHELL_HAS_TYPE_T" -eq 0 ]; then
+        type -t "$elem"
+
+    else
+		typeinfo="$(LANG=C command -V "$elem" 2>/dev/null)"
+		exitcode="$?"
+		typeinfo="$(echo "$typeinfo" | sed 's/^.*is //')"
+		if [ "$exitcode" -eq 0 ]; then
+			if ( echo "$typeinfo" | grep "a shell keyword" >/dev/null ); then echo "keyword"
+			elif ( echo "$typeinfo" | grep "a shell function" >/dev/null ); then echo "function"
+			elif ( echo "$typeinfo" | grep "is an alias for" >/dev/null ); then echo "alias"
+			elif ( echo "$typeinfo" | grep "a shell builtin" >/dev/null ); then echo "builtin"
+			else echo "file"
+			fi
+		else
+			echo ""
+		fi
+		return "$exitcode"
+	fi
+}
+
+
+read_password() {
+	local var; var="$1"; shift
+	local msg
+	local cmd
+	if [ "$#" -gt 0 ]; then
+		msg="$1"; shift
+		cmd="-p \"$msg\" \"$var\""
+	else
+		cmd="\"$var\""
+	fi
+	if [ "$SHELL_HAS_READ_S" -eq 0 ]; then
+		eval "read -s $cmd"
+	else
+		stty -echo
+		eval "read $cmd"
+		printf \\n
+		stty echo
+	fi
+}
+
+to_ENVNAME() {
+	local env_name; env_name="$(to_envname "$@")"
+	[ "$?" -ne 0 ] && return "$?"
+	printf "%s\n" "$env_name" | tr '[:lower:]' '[:upper:]'
+}
+
+to_envname() {
+	local opt_suffix=""
+	[ "$#" -eq 0 ] && return 1
+	local name; name="$1"; shift
+	[ "$#" -gt 0 ] && opt_suffix="$1" && shift
+	local tr_name; tr_name="$(printf "%s" "$name" | tr '(\s\t|[:punct:])' '_' | tr -d '[:space:]')"
+	[ ! -z "$tr_name" ] && tr_name="$tr_name$opt_suffix"
+	printf "%s\n" "$tr_name"
+}
+
+echo "On console"
+
+
+echo "On log"
+
+
+url_part() {
+	local url; url="$1"; shift
+	local part; part="$1"; shift
+	local prot cred user pass host auth port path frag
+	prot="$(echo "$url" | grep '://' | sed -e's,^\(.*://\).*,\1,g')"
+	url="$(echo "$url" | sed "s;^$prot;;")"
+	frag="$(echo "$url" | cut -d\# -f2)"
+	url="$(echo "$url" | cut -d\# -f1)"
+	cred="$(echo "$url" | grep @ | cut -d@ -f1)"
+	user="$(echo "$cred" | sed 's;:.*$;;')"
+	pass="$(echo "$cred" | sed 's;^.*:;;')"
+	auth="$(echo "$url" | sed "s;$cred@;;" | cut -d/ -f1)"
+	host="$(echo "$auth" | sed "s;:.*$;;")"
+	port="$(echo "$auth" | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
+	path="$(echo "$url" | grep / | cut -d/ -f2-)"
+	case "$part" in
+		prot) printf "$prot\n" ;;
+		cred) printf "$cred\n" ;;
+		user) printf "$user\n" ;;
+		pass) printf "$pass\n" ;;
+		auth) printf "$auth\n" ;;
+		host) printf "$host\n" ;;
+		port) printf "$port\n" ;;
+		path) printf "$path\n" ;;
+		frag) printf "$frag\n" ;;
+		*) echo "Unknown URL part '$part'." >&2; return 1 ;;
+	esac
+	return 0
+}
+
+url_encode() {
+	local string="${1}"; shift
+	local strlen="$(echo "$string" | wc -m)"
+	local encoded=""
+	local pos=0
+	local c
+	local o
+
+	while [ "$pos" -lt "$((strlen-1))" ]; do
+		pos="$((pos+1))"
+		c="$(echo "$string" | awk "{s=substr(\$0,$pos,1); print s}")"
+		case "$c" in
+		[-_.~a-zA-Z0-9] ) o="${c}" ;;
+		* )               o="$(printf '%%%02x' "'$c")"
+		esac
+		encoded="${encoded}${o}"
+	done
+	echo "${encoded}"
+}
+
+url_download() {
+    false
+}
+
+echo "On main"

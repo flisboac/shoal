@@ -1,0 +1,107 @@
+#!/bin/sh
+
+maven_download_artifact() {
+	local cmd artifact output_dir
+	output_dir="$(pwd)"
+	while [ "$#" -gt 0 ]; do
+		artifact="$1"; shift
+		cmd="mvn org.apache.maven.plugins:maven-dependency-plugin:3.1.1:copy -Dartifact=\"$artifact\" -DoutputDirectory=\"$output_dir\""
+		echo "* Downloading Maven artifact '$artifact', command: $cmd"
+		eval "$cmd" || break
+	done
+}
+
+
+maven_project_version() {
+	local pom_folder="$(pwd)"
+	local mvn_exec="mvn"
+	local mvn_flags=""
+	local mvn_action="org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version"
+
+	local cmd
+	local version
+	local exitcode
+
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+		--maven-exec) mvn_exec="$1"; shift ;;
+		-ma|--maven-arg) shift; mvn_flags="$mvn_flags '$1'"; shift ;;
+		-P|--active-profiles) shift; vn_flags="$mvn_flags --active-profiles '$1'"; shift ;;
+		-pl|--projects) shift; mvn_flags="$mvn_flags --projects '$1'"; shift ;;
+		-B|--batch-mode) mvn_flags="$mvn_flags --batch-mode"; shift ;;
+		-pd|--project-basedir) shift; pom_folder="$1"; shift ;;
+		*) echo "* Unknown argument '$1'." >&2; return 1
+		esac
+	done
+
+	cmd="cd '$pom_folder' 2>&1 >/dev/null "
+	cmd="$cmd && '$mvn_exec' $mvn_action $mvn_flags"
+	cmd="$cmd | grep --color=never -v '^\\[.*\\]' | grep --color=never -v '^[^0-9]'"
+	#echo "* Executing command: $cmd" >&2
+	version="$(eval "$cmd")"
+	exitcode="$?"
+
+	if [ "$exitcode" -eq 0 ]; then
+		if [ ! -z "$version" ] && [ -f "$pom_folder/pom.xml" ]; then
+			printf "%s\n" "$version"
+		else
+			exitcode="2"
+		fi
+	fi
+	return "$exitcode"
+}
+
+maven_build() {
+	# TODO Review implementation
+	local cmd
+	local goal
+	local profiles
+	local modules
+	local args
+	local project_root
+	
+	project_root="$(pwd)"
+
+	if [ -f "$project_root/pom.xml" ]; then
+		# Configuring a POM project
+
+		pushd "$project_root" 2>/dev/null
+		cmd="mvn "
+		goal="$(image_get_source_var 'maven_goal')"
+		profiles="$(image_get_source_var 'maven_profiles')"
+		modules="$(image_get_source_var 'maven_modules')"
+		args="$(image_get_source_var 'maven_args')"
+
+		if [ ! -z "$goal" ]; then
+			cmd="$cmd $goal"
+		else
+			cmd="$cmd package"
+		fi
+		[ ! -z "$profiles" ] && cmd="$cmd -P \"$profiles\""
+		[ ! -z "$modules" ] && cmd="$cmd -pl \"$modules\" -am"
+		[ ! -z "$args" ] && cmd="$cmd $args"
+
+		echo "* Building MAVEN project. Command: $cmd"
+		eval "$cmd"
+		popd
+
+	else
+		echo "* INFO: Source '$image_source_name' doesn't have a source to build, or doesn't declare a build step."
+	fi
+}
+
+maven_download_artifact() {
+	local IFS
+	local maven_artifacts
+
+	maven_artifacts="$(image_get_source_var 'maven_get_artifacts')"
+	if [ ! -z "$maven_artifacts" ]; then
+		IFS=","
+		for maven_artifact in $maven_artifacts; do
+			mvn_download_artifact "$maven_artifact" || break
+		done
+		exitcode="$?"
+		unset IFS
+		[ "$exitcode" -ne 0 ] && return "$exitcode"
+	fi
+}

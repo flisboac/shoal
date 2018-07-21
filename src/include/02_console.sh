@@ -1,0 +1,3 @@
+
+# console
+echo "On console"

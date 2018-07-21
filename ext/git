@@ -1,0 +1,101 @@
+#!/bin/sh
+
+image_download_source() {
+	local IFS
+	local cmd
+	local url
+	local branch
+	local user
+	local pass
+	local prot
+	local cred
+	local askpass_name
+	local credentials_info
+	local credential_store
+	local credential_flags
+	local maven_artifacts
+	local maven_artifact
+	local exitcode=0
+
+	if [ ! -z "$image_source_vcs" ]; then
+		case "$image_source_vcs" in
+		git)
+			mkdir -p "$image_source_root"
+			cd "$image_source_root"
+			credential_store="$(image_get_source_var 'git_credential_store' 'local')"
+			git init
+
+			url="$image_source_repository"
+			case "$image_source_auth" in
+			user)
+				user="$GIT_USER"
+				pass="$GIT_PASS"
+				[ -z "$user" ] && user="$image_source_user"
+				[ -z "$user" ] && user="$(git config --global --get credential.name)"
+
+				case "$credential_store" in
+					default)
+						credential_store=""
+						;;
+					local)
+						credential_store="store --file=$image_source_root/.git/credentials"
+						;;
+					global)
+						credential_store="store"
+						;;
+					*)
+						echo "* ERROR: Invalid store type." >&2;
+						return 1
+						;;
+				esac
+
+				if [ ! -z "$credential_store" ]; then
+					echo "* Setting repository credentials config..." >&2
+
+					git config --local "http.emptyAuth" "false"
+					git config --local "credential.$url.username" "$user"
+					git config --local "credential.helper" "$credential_store"
+
+					credentials_info="url=$url\n"
+					credentials_info="${credentials_info}username=$user\n"
+					[ ! -z "$pass" ] && credentials_info="${credentials_info}password=$pass\n"
+				fi
+				;;
+			esac
+
+			branch="$image_source_branch"
+			[ -z "$branch" ] && branch="master"
+
+			(
+				echo "* Setting up remote '$url'..." >&2
+				git remote add origin "$url" || exit "$?"
+
+				if [ ! -z "$credentials_info" ]; then
+					echo "* Setting repository credentials info for user '$user'..." >&2
+					echo "$credentials_info" | git credential fill | git credential approve
+				fi || exit "$?"
+
+				echo "* Fetching remote..." >&2
+				git fetch --tags origin  || exit "$?" # "$branch"
+
+				echo "* Checking out branch '$branch'..."  >&2
+				git checkout "$branch" || exit "$?"
+
+				if [ ! -z "$image_source_tag" ]; then
+					git checkout "$image_source_tag"
+				fi || exit "$?"
+			)
+			exitcode="$?"
+
+			[ ! -z "$askpass_name" ] && rm -f "$askpass_name"
+			[ "$exitcode" -ne 0 ] && return "$exitcode"
+			;;
+		*)
+			echo "* ERROR: Unknown VCS type '$image_source_vcs'." >&2
+			return -1
+			;;
+		esac
+	fi
+
+	return 0
+}
