@@ -21,9 +21,10 @@ clean() {
 build() {
     mkdir -p "$DESTDIR" && \
     mkdir -p "$BUILDDIR" && \
+    LANG=POSIX cat src/lib/*.sh | grep -v '^\s*#' > "$BUILDDIR/shoal.sh" && \
     printf "#!${SHELL:-/bin/sh}\n" > "$BUILDDIR/shoal" && \
-    LANG=POSIX cat src/include/*.sh | grep -v '^\s*#' >> "$BUILDDIR/shoal" && \
-    cat src/*.sh | grep -v '^\s*#' >> "$BUILDDIR/shoal" && \
+    cat "$BUILDDIR/shoal.sh" >> "$BUILDDIR/shoal" && \
+    cat src/app/*.sh | grep -v '^\s*#' >> "$BUILDDIR/shoal" && \
     chmod 0555 "$BUILDDIR/shoal"
 }
 
