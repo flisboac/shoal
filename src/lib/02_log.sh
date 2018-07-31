@@ -18,7 +18,8 @@ alias elog='loglv "$LOG_ERROR"'
 alias flog='loglv "$LOG_FATAL"'
 
 [ -z "$EXIT_FAILURE" ] && EXIT_FAILURE=1
-[ -z "$EXIT_LOGLN" ] && EXIT_LOGLN="flog"
+[ -z "$EXIT_LOGOK" ] && EXIT_LOGOK="ilog"
+[ -z "$EXIT_LOGNOK" ] && EXIT_LOGNOK="flog"
 
 [ -z "$STDOUT" ] && STDOUT="&1"
 [ -z "$STDERR" ] && STDERR="&2"
@@ -88,14 +89,16 @@ print() { printf "$@" >"$STDOUT"; }
 println() { local fmt; fmt="$1\n"; shift; print "$fmt" "$@"; }
 # Prints to STDLOG (Default output for logging)
 lprint() { printf "$@" >"$STDLOG"; }
-lprintln() { local fmt; fmt="$1\n"; shift; log "$fmt" "$@"; }
+lprintln() { local fmt; fmt="$1\n"; shift; lprint "$fmt" "$@"; }
 # Prints to STDERR
 eprint() { printf "$@" >"$STDLOG"; }
 eprintln() { local fmt; fmt="$1\n"; shift; eprint "$fmt" "$@"; }
 
 abort() {
     local exitcode; exitcode="$1"; shift
-    [ "$#" -gt 0 ] && "$EXIT_LOGLN" "$@"
+    if [ "$#" -gt 0 ]; then
+        [ "$exitcode" -eq 0 ] && "$EXIT_LOGOK" "$@" || "$EXIT_LOGNOK" "$@"
+    fi
     exit "$exitcode"
 }
 
@@ -104,7 +107,12 @@ bye() {
 }
 
 die() {
-    abort "$EXIT_FAILURE" "$@"
+    local __exitcode="$?"
+    if [ "$__exitcode" -ne 0 ]; then
+        abort "$__exitcode" "$@"
+    else
+        abort "$EXIT_FAILURE" "$@"
+    fi
 }
 
 log_lvtoname() {
@@ -116,11 +124,11 @@ log_lvtoname() {
     echo "FATAL"
 }
 
-is_loggable_lv() { echo "$(test "$1" -lt "$LOG_LEVEL")" }
+is_loggable_lv() { [ "$1" -lt "$LOG_LEVEL" ]; }
 log_getwhen() { date -u -I ns; }
 log_getwhere() { hostname; }
 log_getpid() { echo $$; }
-log_getsubject() { echo "(basename "$0")"; }
+log_getsubject() { printf "%s\n" "$(basename "$0")"; }
 
 loglv_simple() {
     local lv

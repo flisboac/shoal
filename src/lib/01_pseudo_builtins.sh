@@ -11,33 +11,6 @@ readonly NO=1
 [ -z "$SHELL_HAS_READ_S" ] && SHELL_HAS_READ_S="$(echo "\n" | read -s 'if' 2>/dev/null >/dev/null; echo "$?")"
 
 
-current_shell() {
-    ps -p $$ -ocomm= 2>/dev/null
-}
-
-typeof_shell() {
-    local shell_name
-    # Could use:
-    # [ ! -z "$BASH" ] && echo "bash" && return
-    # [ ! -z "$ZSH_NAME" ] && echo "zsh" && return
-    shell_name="$(basename "$(current_shell)" 2>/dev/null)"
-    [ ! -z "$shell_name" ] && printf "$shell_name\n" && return
-    # May never reach here
-    echo "sh"
-}
-
-set_posix() {
-    case "$(typeof_shell)" in
-    bash) set -o posix ;;
-    esac
-}
-
-unset_posix() {
-    case "$(typeof_shell)" in
-    bash) set +o posix ;;
-    esac
-}
-
 typeof() {
 	local elem; elem="$1"; shift
 	local typeinfo
@@ -81,25 +54,11 @@ is_false() {
 }
 
 is_success() {
-    is_true "$?"; return "$?"
+    is_true "$?"
 }
 
-is_var() {
-    (
-        set_posix
-        set | grep "^$1=" >/dev/null 2>/dev/null
-    )
-}
-
-is_empty_var() {
-    local value
-    local cmd
-    cmd="echo \"\${$1}\""
-    value="$(eval "$cmd")" || {
-        echo "* ERROR evaluating command: $cmd" >&2
-        exit "$?"
-    }
-    [ -z "$value" ]
+is_failure() {
+    is_false "$?"
 }
 
 is_function() {

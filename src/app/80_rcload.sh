@@ -19,8 +19,10 @@ shoal_init() {
     shoal_cfg_extpath="${SHOAL_EXTPATH:-$shoal_sys_extdir;$shoal_user_extdir}"
     shoal_cfg_imgpath="${SHOAL_IMGPATH:-$shoal_sys_imgdir;$shoal_user_imgdir}"
     #shoal_cfg_extspec="${SHOAL_EXTSPEC:-*.ext.sh}"
-    shoal_cfg_imgspec="${SHOAL_IMGSPEC:-imgrc;imgrc.d}"
+    shoal_cfg_imgspec="${SHOAL_IMGSPEC:-imgrc.d;imgrc}"
     shoal_cfg_rootsearch_mode="${SHOAL_ROOTSEARCH_MODE:-imgrc}"
+    shoal_cfg_imgroot_maxdepth="${SHOAL_ROOT_MAXDEPTH:-4}"
+    shoal_cfg_imgroot_mindepth="${SHOAL_ROOT_MINDEPTH:-0}"
 
     shoal_sys_home="${SHOAL_HOME:-/usr/local/share/shoal}"
     shoal_sys_bindir="${SHOAL_BINDIR:-$shoal_sys_home/bin}"
@@ -58,17 +60,16 @@ shoal_init() {
         die "Could not detect user's ID and/or name."
     fi
     
-    # Importing all system libraries
+    # Importing all non-project libraries
     __shoal_import_syslibs
     __shoal_import_userlibs
-    __shoal_import_imglibs
 
-    # Sets:
-    # - imgroot_home
-    # - imgroot_rcfile
+    # Setting up all non-project images
+
+    # Setting up root
     __shoal_img_findroot
-    __shoal_img_importroot
-    __shoal_img_setup
+    __shoal_img_findrootrc
+    __shoal_img_setuproot
 
     IFS=";"; for extension in $shoal_extensions; do
         unset IFS
@@ -78,19 +79,6 @@ shoal_init() {
     done; IFS="$old_IFS"
 
     shoal_initialized=0
-}
-
-__shoal_util_foreachf() {
-
-    local base_folder; base_folder="$1"; shift
-    local pattern; pattern="$1"; shift
-    local maxdepth; maxdepth="$1"; shift
-    local cmd; cmd="$1"; shift
-    local LC_COLLATE
-    LC_COLLATE="POSIX"
-    base_folder="$(cd "$base_folder"; pwd)"
-    # -printf "\"%p\" "
-    find "$base_folder" -maxdepth "$maxdepth" -name "$pattern" -type f -not -path "$base_folder/." -not -path "$base_folder/.." -exec "$cmd" "\"{}\"" ';'
 }
 
 # Global command
