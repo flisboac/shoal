@@ -1,7 +1,9 @@
 
 import_img() {
-    # TODO implementation
-    false
+    
+    if [ -z "$shoal_phase" ] || [ "$shoal_phase" = 'rcinit' ]; then
+
+    fi
 }
 
 __shoal_img_importl() {
@@ -94,11 +96,11 @@ __shoal_img_setuproot() {
     local __imgpath
 
     if [ ! -z "$imgroot_rcfile" ]; then
-        imgroot_stage="init"
+        imgroot_phase="init"
         cd "$imgroot_home"
         . "$imgroot_rcfile"
         cd "$__pwd"
-        unset imgroot_stage
+        unset imgroot_phase
     fi
 
     [ -z "$imgroot_maxdepth" ] && imgroot_maxdepth="$shoal_cfg_imgroot_maxdepth"
@@ -111,8 +113,8 @@ __shoal_img_setuproot() {
         IFS=";"; for imgspec in $shoal_cfg_imgspec; do
             unset IFS
             for file in $(find "$imgroot_home" -mindepth "$imgroot_mindepth" -maxdepth "$imgroot_maxdepth" -name "$imgspec" | sort | uniq); do
-                __imgpath="$(dirname "${file#$imgroot_home/}")" # This variable substitution here only works because $imgroot_home is guaranteed to be an absolute path
-                [ __imgpath = "." ] && __imgpath="/"
+                __imgpath="$(dirname "${file#$imgroot_home}")" # This variable substitution here only works because $imgroot_home is guaranteed to be an absolute path
+                # { [ __imgpath = "." ] || [ __imgpath = "./" ]; } && __imgpath="/"
                 imgroot_imgpaths="$imgroot_imgpaths;$__imgpath"
             done
         done; unset IFS
@@ -150,7 +152,7 @@ __shoal_img_findroot() {
                 
                 if [ -z "$imgroot_rcfile" ]; then
                     __img_dir="$(
-                        imgroot_stage="search"
+                        imgroot_phase="search"
                         cd "$imgroot_home"
                         . "$imgroot_rcfile"
 
@@ -234,4 +236,10 @@ __shoal_img_loadrc() {
     cd "$__pwd"
 
     # TODO Variable checking
+}
+
+__shoal_img_runphase() {
+
+    # TODO implementation
+    false
 }

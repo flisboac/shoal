@@ -6,6 +6,8 @@ shoal_init() {
     local IFS
     local old_IFS; old_IFS="$IFS"
 
+    shoal_phase="rcinit"
+
     shoal_imported_exts="${shoal_imported_exts#;}"
     shoal_imported_imgs=""
 
